@@ -1,3 +1,0 @@
-boto3>=1.34
-dbt-snowflake~=1.9
-snowflake-cli>=3.0
