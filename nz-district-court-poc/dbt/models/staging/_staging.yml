@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: stg_dc_docs
+    columns:
+      - name: relative_path
+        tests: [unique, not_null]
+  - name: stg_dc_cortex
+    columns:
+      - name: relative_path
+        tests: [unique, not_null]
+      - name: case_type
+        tests:
+          - accepted_values:
+              values: ['criminal', 'civil', 'unknown']
+  - name: stg_dc_bedrock
+    columns:
+      - name: relative_path
+        tests: [unique, not_null]
+      - name: confidence
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1
+              where: "confidence is not null"
+      - name: guilty_plea_percent
+        description: The law allows at most 25 %. Higher values are extraction errors.
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 25
+              where: "guilty_plea_percent is not null"
+              config: {severity: warn}
+  - name: stg_dc_sentencing_adjustments
+    columns:
+      - name: direction
+        tests:
+          - accepted_values:
+              values: ['uplift', 'discount']
+              config: {severity: warn}

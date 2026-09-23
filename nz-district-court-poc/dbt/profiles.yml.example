@@ -1,0 +1,27 @@
+# Copy to ~/.dbt/profiles.yml, or keep here and run dbt with --profiles-dir .
+# Secrets come from environment variables. Nothing secret goes in git.
+nz_district_court:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"          # orgname-accountname
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      authenticator: snowflake_jwt
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      role: NZDC_DEV_TRANSFORMER
+      warehouse: NZDC_DEV_WH
+      database: NZDC_DEV
+      schema: STAGING
+      threads: 4
+    prod:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      authenticator: snowflake_jwt
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      role: NZDC_PROD_TRANSFORMER
+      warehouse: NZDC_PROD_WH
+      database: NZDC_PROD
+      schema: STAGING
+      threads: 4

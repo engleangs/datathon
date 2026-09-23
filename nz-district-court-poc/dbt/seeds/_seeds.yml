@@ -1,0 +1,12 @@
+version: 2
+
+seeds:
+  - name: gold_labels
+    description: >
+      Hand-labelled ground truth for 15 to 20 District Court decisions. Read each
+      PDF yourself and fill the row. Do NOT copy the AI output, or the accuracy
+      score means nothing. relative_path must match the S3 file name.
+      Leave sentencing columns empty for civil decisions.
+    columns:
+      - name: relative_path
+        tests: [unique, not_null]

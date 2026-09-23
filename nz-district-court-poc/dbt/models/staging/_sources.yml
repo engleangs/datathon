@@ -1,0 +1,35 @@
+version: 2
+
+sources:
+  - name: raw
+    database: "{{ target.database }}"
+    schema: RAW
+    description: Tables written by RAW.PROCESS_NEW_DECISIONS (Cortex + Bedrock pipeline).
+    tables:
+      - name: dc_docs
+        description: One row per decision PDF. Text from AI_PARSE_DOCUMENT, plus the exclusion gate.
+        loaded_at_field: parsed_at
+        freshness:
+          warn_after: {count: 7, period: day}
+        columns:
+          - name: relative_path
+            tests: [unique, not_null]
+          - name: excluded_reason
+            tests:
+              - accepted_values:
+                  values: ['youth_court', 'family_court', 'not_district_court']
+      - name: dc_cortex
+        description: AI_EXTRACT, AI_CLASSIFY and AI_COMPLETE output.
+        columns:
+          - name: relative_path
+            tests:
+              - unique
+              - not_null
+              - relationships:
+                  to: source('raw', 'dc_docs')
+                  field: relative_path
+      - name: dc_bedrock
+        description: Bedrock sentencing arithmetic for sentencing notes.
+        columns:
+          - name: relative_path
+            tests: [unique, not_null]
