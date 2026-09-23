@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: fct_cases
+    description: All extracted cases, including records requiring review.
+
+    columns:
+      - name: extraction_id
+        data_tests:
+          - unique
+          - not_null
+
+      - name: source_document
+        data_tests:
+          - not_null
+
+  - name: fct_verified_cases
+    description: Cases that passed the MVP deterministic checks and were not explicitly flagged for human review.
+
+    columns:
+      - name: extraction_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_legislation
+    description: Legislation references flattened from each case extraction.
+
+  - name: fct_case_citations
+    description: Case-to-case citations flattened from each case extraction.

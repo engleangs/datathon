@@ -1,0 +1,34 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nz-court-intelligence-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${APP_BIND:-0.0.0.0}:${APP_PORT:-8501}:8501"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=5)"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 25s
+
+  dbt:
+    build:
+      context: .
+      dockerfile: Dockerfile.dbt
+    env_file:
+      - .env
+    environment:
+      DBT_PROFILES_DIR: /app/dbt_nz_court
+    profiles:
+      - tools

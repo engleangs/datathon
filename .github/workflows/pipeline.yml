@@ -1,0 +1,129 @@
+name: CI and Deploy
+
+on:
+  pull_request:
+    branches:
+      - main
+
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nz-court-intelligence-production
+  cancel-in-progress: true
+
+env:
+  DEPLOY_HOST: "139.99.68.73"
+  DEPLOY_PATH: "/datathon/prod"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-app.txt -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Validate Docker Compose
+        run: |
+          cp .env.example .env
+          docker compose config >/dev/null
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs:
+      - test
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          eval "$(ssh-agent -s)"
+          echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+
+          ssh-keyscan -p 22 -H "${DEPLOY_HOST}" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
+
+      - name: Ensure deployment directory exists
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "mkdir -p '${DEPLOY_PATH}'"
+
+      - name: Sync project
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          rsync -az --delete \
+            --exclude '.git/' \
+            --exclude '.env' \
+            --exclude '.venv/' \
+            --exclude '__pycache__/' \
+            --exclude '.pytest_cache/' \
+            --exclude 'target/' \
+            --exclude 'dbt_packages/' \
+            --exclude 'logs/' \
+            --exclude '*.pdf' \
+            ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
+
+      - name: Build and deploy
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" << EOF
+            set -euo pipefail
+            cd "${DEPLOY_PATH}"
+
+            if [ ! -f .env ]; then
+              echo "ERROR: ${DEPLOY_PATH}/.env is missing."
+              echo "Create it on the server from .env.example before deploying."
+              exit 1
+            fi
+
+            docker compose config >/dev/null
+            docker compose build --pull app dbt
+            docker compose up -d --remove-orphans app
+
+            # dbt creates/refreshes the view definitions and executes tests.
+            docker compose run --rm dbt
+
+            docker compose ps
+            docker image prune -f
+          EOF

@@ -1,0 +1,13 @@
+.git
+.github
+.venv
+__pycache__
+.pytest_cache
+*.pyc
+.env
+.DS_Store
+target
+dbt_packages
+logs
+*.pdf
+sample_data/private

@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: stg_case_extractions
+    description: Standardized top-level case extraction records.
+
+    columns:
+      - name: extraction_id
+        data_tests:
+          - unique
+          - not_null
+
+      - name: document_id
+        data_tests:
+          - not_null
+
+      - name: source_document
+        data_tests:
+          - not_null
+
+      - name: extraction_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['ACCEPTED', 'REVIEW_REQUIRED']

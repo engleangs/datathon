@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+.DS_Store
+
+.streamlit/secrets.toml
+
+target/
+dbt_packages/
+logs/
+
+*.pdf
+sample_data/private/
