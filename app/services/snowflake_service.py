@@ -1,4 +1,7 @@
 import json
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote, urlsplit
+from urllib.request import Request, urlopen
 import uuid
 
 import snowflake.connector
@@ -6,6 +9,77 @@ import snowflake.connector
 from app.config import Settings
 from app.schemas import CourtCaseExtraction, ValidationResult
 from app.services.pdf_service import CourtDocument
+
+
+def _require_https_origin(value: str, setting_name: str) -> str:
+    parts = urlsplit(value)
+    if (
+        parts.scheme != "https"
+        or not parts.netloc
+        or parts.username is not None
+        or parts.password is not None
+        or parts.path not in ("", "/")
+        or parts.query
+        or parts.fragment
+    ):
+        raise RuntimeError(f"{setting_name} must be an HTTPS origin.")
+    return value.rstrip("/")
+
+
+def generate_streamlit_embed_url(settings: Settings) -> str:
+    """Mint a single-use URL for the configured Streamlit in Snowflake app."""
+    settings.require_snowflake_embed()
+
+    account_url = _require_https_origin(
+        settings.snowflake_account_url,
+        "SNOWFLAKE_ACCOUNT_URL",
+    )
+    parent_origin = _require_https_origin(settings.parent_origin, "PARENT_ORIGIN")
+
+    database = quote(settings.streamlit_database, safe="")
+    schema = quote(settings.streamlit_schema, safe="")
+    app = quote(settings.streamlit_app, safe="")
+    endpoint = (
+        f"{account_url}/api/v2/databases/{database}/schemas/{schema}/"
+        f"streamlits/{app}:generate-embed-url"
+    )
+    request = Request(
+        endpoint,
+        data=json.dumps({"parent_origin": parent_origin}).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {settings.snowflake_embed_pat}",
+            "X-Snowflake-Authorization-Token-Type": "PROGRAMMATIC_ACCESS_TOKEN",
+            "X-Snowflake-Role": settings.snowflake_embed_role,
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=20) as response:
+            response_data = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:1000]
+        raise RuntimeError(
+            f"Snowflake embed URL request failed (HTTP {exc.code}): {detail}"
+        ) from exc
+    except URLError as exc:
+        raise RuntimeError(f"Snowflake embed URL request failed: {exc.reason}") from exc
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Snowflake embed URL response was not valid JSON.") from exc
+
+    if not isinstance(response_data, dict):
+        raise RuntimeError("Snowflake embed URL response was not a JSON object.")
+
+    embed_url = response_data.get("embed_url")
+    if not isinstance(embed_url, str) or not embed_url:
+        raise RuntimeError("Snowflake embed URL response did not contain embed_url.")
+
+    embed_url_parts = urlsplit(embed_url)
+    if embed_url_parts.scheme != "https" or not embed_url_parts.netloc:
+        raise RuntimeError("Snowflake returned an invalid embed URL.")
+
+    return embed_url
 
 class DuplicateDocumentError(Exception):
     """This document has already been submitted into the CourtLens system."""
