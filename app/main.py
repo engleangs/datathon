@@ -12,7 +12,11 @@ from app.config import Settings
 from app.services.agent_service import analyse_judgment
 from app.services.debug_service import save_debug_extraction
 from app.services.pdf_service import read_pdf
-from app.services.snowflake_service import save_extraction
+from app.services.snowflake_service import (
+    DuplicateDocumentError,
+    document_exists,
+    save_extraction,
+)
 from app.services.validation_service import validate_extraction
 
 
@@ -83,14 +87,13 @@ if uploaded is not None:
         if already_saved:
             st.warning("This document has already been saved to Snowflake (matching SHA-256).")
 
-if st.button("Run agent", type="primary", disabled=already_saved):
 
         c1, c2, c3 = st.columns(3)
         c1.metric("Pages", document.page_count)
         c2.metric("Document SHA", document.sha256[:12] + "…")
         c3.metric("Source", "Provided" if document.source_url else "Upload only")
 
-        if st.button("Run agent", type="primary"):
+        if st.button("Run agent", type="primary", disabled=already_saved):
             with st.spinner("Agent is inspecting and validating the judgment..."):
                 extraction = analyse_judgment(
                     document=document,
