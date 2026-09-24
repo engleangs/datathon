@@ -7,6 +7,26 @@ from app.config import Settings
 from app.schemas import CourtCaseExtraction, ValidationResult
 from app.services.pdf_service import CourtDocument
 
+class DuplicateDocumentError(Exception):
+    """This document has already been submitted into the CourtLens system."""
+
+def document_exists(sha256: str, settings: Settings) -> bool:
+    conn = _connection(settings)
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT 1
+            FROM CASE_EXTRACTIONS ce
+            JOIN DOCUMENTS d ON d.DOCUMENT_ID = ce.DOCUMENT_ID
+            WHERE d.SHA256 = %s
+            LIMIT 1
+            """,
+            (sha256,),
+        )
+        return cursor.fetchone() is not None
+    finally:
+        conn.close()
 
 def _connection(settings: Settings):
     settings.require_snowflake()
@@ -90,22 +110,16 @@ def save_extraction(
         cursor.execute(
             """
             INSERT INTO CASE_EXTRACTIONS (
-                EXTRACTION_ID,
-                DOCUMENT_ID,
-                MODEL_ID,
-                EXTRACTION,
-                VALIDATION,
-                EXTRACTION_STATUS,
-                LOADED_AT
+                EXTRACTION_ID, DOCUMENT_ID, MODEL_ID,
+                EXTRACTION, VALIDATION, EXTRACTION_STATUS, LOADED_AT
             )
-            SELECT
-                %s,
-                %s,
-                %s,
-                PARSE_JSON(%s),
-                PARSE_JSON(%s),
-                %s,
-                CURRENT_TIMESTAMP()
+            SELECT %s, %s, %s, PARSE_JSON(%s), PARSE_JSON(%s), %s, CURRENT_TIMESTAMP()
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM CASE_EXTRACTIONS ce
+                JOIN DOCUMENTS d ON d.DOCUMENT_ID = ce.DOCUMENT_ID
+                WHERE d.SHA256 = %s
+            )
             """,
             (
                 extraction_id,
@@ -114,6 +128,7 @@ def save_extraction(
                 extraction_json,
                 validation_json,
                 validation.status,
+                document.sha256,
             ),
         )
 
