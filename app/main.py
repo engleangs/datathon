@@ -10,6 +10,7 @@ import streamlit as st
 
 from app.config import Settings
 from app.services.agent_service import analyse_judgment
+from app.services.debug_service import save_debug_extraction
 from app.services.pdf_service import read_pdf
 from app.services.snowflake_service import save_extraction
 from app.services.validation_service import validate_extraction
@@ -86,6 +87,11 @@ if uploaded is not None:
                     user_request=user_request,
                     settings=settings,
                 )
+                try:
+                    debug_path = save_debug_extraction(extraction, document)
+                except OSError as exc:
+                    debug_path = None
+                    st.warning(f"Could not save debug extraction: {exc}")
                 validation = validate_extraction(
                     extraction=extraction,
                     document=document,
@@ -94,6 +100,7 @@ if uploaded is not None:
             st.session_state["document"] = document
             st.session_state["extraction"] = extraction
             st.session_state["validation"] = validation
+            st.session_state["debug_path"] = debug_path
 
     except Exception as exc:
         st.error(str(exc))
@@ -102,6 +109,7 @@ if "extraction" in st.session_state:
     extraction = st.session_state["extraction"]
     validation = st.session_state["validation"]
     document = st.session_state["document"]
+    debug_path = st.session_state.get("debug_path")
 
     st.divider()
 
@@ -130,6 +138,8 @@ if "extraction" in st.session_state:
 
     with tab1:
         st.json(extraction.model_dump(mode="json"))
+        if debug_path is not None:
+            st.caption(f"Debug JSON saved to `{debug_path}`")
 
     with tab2:
         st.json(validation.model_dump(mode="json"))
