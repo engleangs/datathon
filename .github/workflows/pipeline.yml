@@ -53,6 +53,10 @@ jobs:
           cp .env.example .env
           docker compose config >/dev/null
 
+      - name: Build Docker images
+        run: |
+          docker compose build app dbt
+
   deploy:
     if: github.event_name != 'pull_request'
     needs:
@@ -122,7 +126,7 @@ jobs:
 
             docker compose config >/dev/null
             docker compose build --pull app dbt
-            docker compose up -d --remove-orphans app
+            docker compose up -d --remove-orphans --wait --wait-timeout 90 app
 
             # dbt creates/refreshes the view definitions and executes tests.
             docker compose run --rm dbt
