@@ -18,6 +18,12 @@ All judgments are shown by default, each with a badge: Verified, Unverified,
 Needs review, or Check publication restriction. The sidebar checkbox narrows
 the view to verified judgments only.
 
+Judgments where the pipeline found signs of a suppression order or another
+publication restriction stay in the list, but their details are locked:
+clicking one shows only a notice with the court, date and citation. Nothing
+from inside the judgment (parties, outcome, quotes, download) is shown until
+a person has checked the original.
+
 ## Where it runs
 
 Deployed from a Snowflake Workspace as a Streamlit app:

@@ -7,7 +7,7 @@ from streamlit.testing.v1 import AppTest
 APP = str(Path(__file__).resolve().parents[1] / "streamlit_app.py")
 
 # Test data (tests/fake_snowflake.py): 10 judgments; j10 is unverified,
-# j9 has a publication-restriction marker and is shown with a warning badge.
+# j9 has a publication-restriction marker: listed with a warning badge, details locked.
 
 
 def run(at):
@@ -80,13 +80,25 @@ def test_case_details_citations_dollars_and_judges():
     assert "D A Kirkpatrick" in text
 
 
-def test_restricted_judgment_shown_with_warning_badge():
+def test_restricted_judgment_listed_but_details_locked():
     at = run(AppTest.from_file(APP))
     at.sidebar.radio[0].set_value("Case Explorer")
     at.session_state["selected_key"] = "j9"
     run(at)
+    assert any(b.key == "case_j9" for b in at.button)              # still in the list
     text = " ".join(m.value for m in at.markdown)
-    assert "Check publication restriction" in text
+    assert "Check publication restriction" in text                 # badge shown
+    assert any("details are withheld" in w.value for w in at.warning)
+    assert len(at.tabs) == 0                                       # no details tabs
+    assert "Supporting evidence" not in text and "Outcome" not in text
+
+
+def test_unrestricted_judgment_still_opens():
+    at = run(AppTest.from_file(APP))
+    at.sidebar.radio[0].set_value("Case Explorer")
+    at.session_state["selected_key"] = "j1"
+    run(at)
+    assert len(at.tabs) == 3
 
 
 def test_pages_and_no_about():
