@@ -132,6 +132,11 @@ def save_extraction(
             ),
         )
 
+        if cursor.rowcount == 0:
+            raise DuplicateDocumentError(
+                f"{document.filename} (SHA-256 {document.sha256[:12]}…) has already been saved."
+            )
+
         conn.commit()
         return extraction_id
 
