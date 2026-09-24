@@ -15,6 +15,7 @@ from app.services.pdf_service import read_pdf
 from app.services.snowflake_service import (
     DuplicateDocumentError,
     document_exists,
+    generate_streamlit_embed_url,
     save_extraction,
 )
 from app.services.validation_service import validate_extraction
@@ -173,7 +174,18 @@ if "extraction" in st.session_state:
                 settings=settings,
             )
             st.success(f"Saved to Snowflake. Extraction ID: {extraction_id}")
-        except DuplicateDocumentError as exc: 
+        except DuplicateDocumentError as exc:
             st.warning(str(exc))
         except Exception as exc:
             st.error(f"Snowflake write failed: {exc}")
+        else:
+            try:
+                embed_url = generate_streamlit_embed_url(settings)
+            except Exception as exc:
+                st.warning(f"Saved, but the dashboard link could not be created: {exc}")
+            else:
+                st.link_button(
+                    "Open Snowflake dashboard",
+                    embed_url,
+                    type="primary",
+                )

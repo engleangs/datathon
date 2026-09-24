@@ -145,6 +145,22 @@ SNOWFLAKE_ROLE=...
 DBT_TARGET_SCHEMA=ANALYTICS
 ```
 
+To show a link to an embedded Streamlit in Snowflake dashboard after saving,
+also configure:
+
+```env
+SNOWFLAKE_ACCOUNT_URL=https://myorganization-myaccount.snowflakecomputing.com
+SNOWFLAKE_EMBED_PAT=<programmatic access token>
+SNOWFLAKE_EMBED_ROLE=STREAMLIT_EMBED_ROLE
+STREAMLIT_DATABASE=DATATHON_TEST
+STREAMLIT_SCHEMA=COURTLENS
+STREAMLIT_APP=TESTCOURTDASHBOARD
+PARENT_ORIGIN=https://your-app.example.com
+```
+
+The parent origin must exactly match a domain configured in the Snowflake
+Streamlit app's `allowed_embedding_domains` setting.
+
 ## 3. Run locally without Docker
 
 Python 3.10+ is required.
