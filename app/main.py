@@ -7,6 +7,7 @@ if str(ROOT) not in sys.path:
 
 from dotenv import load_dotenv
 import streamlit as st
+import streamlit.components.v1 as components
 
 from app.config import Settings
 from app.services.agent_service import analyse_judgment
@@ -30,6 +31,16 @@ st.set_page_config(
 )
 
 settings = Settings.from_env()
+
+
+@st.dialog("Snowflake dashboard", width="large")
+def show_snowflake_dashboard(embed_url: str) -> None:
+    components.iframe(
+        embed_url,
+        height=750,
+        scrolling=True,
+    )
+
 
 st.title("NZ Court Intelligence")
 st.caption(
@@ -191,8 +202,4 @@ if "extraction" in st.session_state:
                     f"could not be created: {exc}"
                 )
             else:
-                st.link_button(
-                    "Open Snowflake dashboard",
-                    embed_url,
-                    type="primary",
-                )
+                show_snowflake_dashboard(embed_url)
