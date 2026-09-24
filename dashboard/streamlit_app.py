@@ -8,8 +8,9 @@
 #
 # All data comes from the dbt models in DATATHON_TEST.ANALYTICS_ANALYTICS.
 # The app only reads data. It never writes anything back to Snowflake.
-# Judgments flagged for a possible publication restriction are shown with a
-# warning badge, so check the original judgment before sharing them.
+# Judgments flagged for a possible publication restriction (for example a
+# suppression order) appear in the list with a warning badge, but their
+# details are locked: clicking one shows only a notice, not the contents.
 
 import json
 import re
@@ -327,8 +328,8 @@ def load_judgments_enriched():
                    .groupby("JUDGMENT_KEY")["TOPIC_NAME"].apply(lambda s: ", ".join(dict.fromkeys(s))))
 
     # Mark any judgment where the pipeline found signs of a publication
-    # restriction (for example a suppression order). These are still shown,
-    # but with a warning badge so readers know to check the original.
+    # restriction (for example a suppression order). These stay in the list
+    # with a warning badge, but their details can't be opened.
     quality = load("quality")
     restricted = quality[quality["ISSUE_TYPE"].fillna("").str.upper().str.contains("PUBLICATION")]
     df["RESTRICTED"] = df["JUDGMENT_KEY"].isin(restricted["JUDGMENT_KEY"])
@@ -682,6 +683,22 @@ def case_details(row):
     title_col.markdown(f"**{row['NEUTRAL_CITATION']}**")
     pill_col.markdown(status_pill(row), unsafe_allow_html=True)
 
+    # If the pipeline found signs of a suppression order or other publication
+    # restriction, stop here. We show a notice and the basic court details,
+    # but nothing from inside the judgment: no parties, outcome, quotes,
+    # links or download. A person has to check the original first.
+    if row["RESTRICTED"]:
+        st.warning("🔒 This judgment may be subject to a suppression order or another publication "
+                   "restriction, so its details are withheld. It needs to be checked by a person "
+                   "against the original judgment before anything from it is shown.")
+        detail_rows([
+            ("Court", row["COURT"]),
+            ("Judgment date", fmt_date(row["JUDGMENT_DATE"], "%d %B %Y")),
+            ("Citation", row["NEUTRAL_CITATION"]),
+            ("Status", "Details withheld pending review"),
+        ])
+        return
+
     # Load this judgment's details, each list in the order it appears in the judgment.
     one = pd.Series([key])
     cases_cited = for_judgments("case_citations", one).sort_values("REFERENCE_POSITION")
@@ -927,8 +944,8 @@ def page_insights():
     # for a possible publication restriction.
     flagged = int(all_j["RESTRICTED"].sum())
     st.caption("These figures cover every extracted judgment, including those not yet verified."
-               + (f" {flagged} judgment(s) were flagged for a possible publication restriction and "
-                  "carry a warning badge in the Case Explorer." if flagged else ""))
+               + (f" {flagged} judgment(s) were flagged for a possible publication restriction; "
+                  "they are listed in the Case Explorer but their details are locked." if flagged else ""))
     st.write("")
 
     left, right = st.columns(2)
