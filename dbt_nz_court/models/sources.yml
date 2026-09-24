@@ -2,12 +2,12 @@ version: 2
 
 sources:
   - name: raw
-    database: "{{ env_var('SNOWFLAKE_DATABASE', 'NZ_COURT_INTELLIGENCE') }}"
-    schema: RAW
+    database: "{{ env_var('SNOWFLAKE_DATABASE', 'DATATHON_TEST') }}"
+    schema: "{{ env_var('SNOWFLAKE_SCHEMA', 'COURTLENS') }}"
 
     tables:
       - name: documents
         description: Metadata for uploaded public court judgment PDFs.
 
       - name: case_extractions
-        description: Raw structured Bedrock/Strands extraction and deterministic validation payloads.
+        description: Raw Bedrock/agent extraction and validation payloads.
