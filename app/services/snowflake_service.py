@@ -47,6 +47,7 @@ def generate_streamlit_embed_url(settings: Settings) -> str:
         endpoint,
         data=json.dumps({"parent_origin": parent_origin}).encode("utf-8"),
         headers={
+            "Accept": "application/json",
             "Content-Type": "application/json",
             "Authorization": f"Bearer {settings.snowflake_embed_pat}",
             "X-Snowflake-Authorization-Token-Type": "PROGRAMMATIC_ACCESS_TOKEN",

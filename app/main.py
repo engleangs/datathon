@@ -166,6 +166,7 @@ if "extraction" in st.session_state:
         "Save extraction to Snowflake",
         disabled=not reviewed,
     ):
+        extraction_is_saved = False
         try:
             extraction_id = save_extraction(
                 document=document,
@@ -174,15 +175,21 @@ if "extraction" in st.session_state:
                 settings=settings,
             )
             st.success(f"Saved to Snowflake. Extraction ID: {extraction_id}")
+            extraction_is_saved = True
         except DuplicateDocumentError as exc:
             st.warning(str(exc))
+            extraction_is_saved = True
         except Exception as exc:
             st.error(f"Snowflake write failed: {exc}")
-        else:
+
+        if extraction_is_saved:
             try:
                 embed_url = generate_streamlit_embed_url(settings)
             except Exception as exc:
-                st.warning(f"Saved, but the dashboard link could not be created: {exc}")
+                st.warning(
+                    "The extraction is in Snowflake, but the dashboard link "
+                    f"could not be created: {exc}"
+                )
             else:
                 st.link_button(
                     "Open Snowflake dashboard",

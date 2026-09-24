@@ -41,6 +41,7 @@ def test_generate_streamlit_embed_url(monkeypatch):
         "streamlits/TESTCOURTDASHBOARD:generate-embed-url"
     )
     assert request.get_method() == "POST"
+    assert headers["Accept"] == "application/json"
     assert headers["Authorization"] == "Bearer secret-token"
     assert headers["X-snowflake-role"] == "STREAMLIT_EMBED_ROLE"
     assert json.loads(request.data) == {
