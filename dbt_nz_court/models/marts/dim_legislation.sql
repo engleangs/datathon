@@ -1,15 +1,7 @@
+-- One row per piece of legislation (Act or regulation). Sections live on fct_legislation_citation.
+
 select
-    c.extraction_id,
-    c.document_id,
-    c.case_name,
-    c.neutral_citation,
-    c.court,
-    c.judgment_date,
-
-    legislation.value:act::string as act,
-    legislation.value:section::string as section,
-    legislation.value:evidence:page::number as source_page,
-    legislation.value:evidence:text::string as evidence_text
-
-from {{ ref('stg_case_extractions') }} c,
-lateral flatten(input => c.legislation_cited) legislation
+    legislation_key,
+    min(act_name) as act_name
+from {{ ref('int_judgment_legislation') }}
+group by 1
