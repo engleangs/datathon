@@ -1,30 +1,282 @@
 version: 2
 
 models:
-  - name: fct_cases
-    description: All extracted cases, including records requiring review.
 
+  # ---------------------------------------------------------------------------
+  # Dimensions
+  # ---------------------------------------------------------------------------
+
+  - name: dim_source_document
+    description: One row per ingested PDF.
     columns:
-      - name: extraction_id
+      - name: document_id
+        description: SHA-256 of the file. Primary key.
         data_tests:
           - unique
           - not_null
 
-      - name: source_document
+  - name: dim_court
+    description: One row per court.
+    columns:
+      - name: court_key
+        data_tests:
+          - unique
+          - not_null
+      - name: court_name
         data_tests:
           - not_null
 
-  - name: fct_verified_cases
-    description: Cases that passed the MVP deterministic checks and were not explicitly flagged for human review.
-
+  - name: dim_case_category
+    description: One row per case category.
     columns:
-      - name: extraction_id
+      - name: case_category_key
         data_tests:
           - unique
+          - not_null
+      - name: case_category_name
+        data_tests:
+          - not_null
+
+  - name: dim_judge
+    description: One row per judge, with titles (J, JJ, CJ, Justice, etc.) stripped.
+    columns:
+      - name: judge_key
+        data_tests:
+          - unique
+          - not_null
+      - name: judge_name
+        data_tests:
+          - not_null
+
+  - name: dim_topic
+    description: One row per legal topic.
+    columns:
+      - name: topic_key
+        data_tests:
+          - unique
+          - not_null
+      - name: topic_name
+        data_tests:
           - not_null
 
   - name: dim_legislation
-    description: Legislation references flattened from each case extraction.
+    description: One row per Act or regulation.
+    columns:
+      - name: legislation_key
+        data_tests:
+          - unique
+          - not_null
+      - name: act_name
+        data_tests:
+          - not_null
 
-  - name: fct_case_citations
-    description: Case-to-case citations flattened from each case extraction.
+  - name: dim_cited_case
+    description: One row per cited case, keyed on citation.
+    columns:
+      - name: cited_case_key
+        data_tests:
+          - unique
+          - not_null
+      - name: citation
+        data_tests:
+          - not_null
+      - name: cited_judgment_key
+        description: The cited case's own judgment, when it is in the corpus.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fct_judgment')
+                field: judgment_key
+
+  # ---------------------------------------------------------------------------
+  # Facts
+  # ---------------------------------------------------------------------------
+
+  - name: fct_judgment
+    description: One row per judgment, from its latest extraction. Central table of the model.
+    columns:
+      - name: judgment_key
+        data_tests:
+          - unique
+          - not_null
+      - name: document_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_source_document')
+                field: document_id
+      - name: court_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_court')
+                field: court_key
+      - name: case_category_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_case_category')
+                field: case_category_key
+      - name: neutral_citation
+        description: Warns if two documents share a citation (likely the same judgment uploaded twice).
+        data_tests:
+          - unique:
+              config:
+                severity: warn
+      - name: extraction_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['ACCEPTED', 'REVIEW_REQUIRED']
+
+  - name: fct_extraction_run
+    description: One row per extraction attempt, including superseded ones.
+    columns:
+      - name: extraction_id
+        data_tests:
+          - unique
+          - not_null
+      - name: document_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_source_document')
+                field: document_id
+
+  - name: fct_legislation_citation
+    description: One row per legislation reference in a judgment.
+    columns:
+      - name: legislation_citation_key
+        data_tests:
+          - unique
+          - not_null
+      - name: judgment_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_judgment')
+                field: judgment_key
+      - name: legislation_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_legislation')
+                field: legislation_key
+
+  - name: fct_case_citation
+    description: One row per case cited in a judgment.
+    columns:
+      - name: case_citation_key
+        data_tests:
+          - unique
+          - not_null
+      - name: judgment_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_judgment')
+                field: judgment_key
+      - name: cited_case_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_cited_case')
+                field: cited_case_key
+
+  - name: fct_judgment_legal_issue
+    description: One row per legal issue identified in a judgment.
+    columns:
+      - name: legal_issue_key
+        data_tests:
+          - unique
+          - not_null
+      - name: judgment_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fct_judgment')
+                field: judgment_key
+
+  - name: fct_judgment_quality_issue
+    description: One row per uncertainty, validation reason, missing reference or publication marker.
+    columns:
+      - name: quality_issue_key
+        data_tests:
+          - unique
+          - not_null
+      - name: judgment_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fct_judgment')
+                field: judgment_key
+      - name: issue_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['AGENT_UNCERTAINTY', 'VALIDATION_REASON', 'MISSING_REFERENCE', 'PUBLICATION_MARKER']
+
+  - name: fct_judgment_evidence
+    description: One row per supporting passage quoted for a judgment's metadata.
+    columns:
+      - name: evidence_key
+        data_tests:
+          - unique
+          - not_null
+      - name: judgment_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fct_judgment')
+                field: judgment_key
+
+  # ---------------------------------------------------------------------------
+  # Bridges
+  # ---------------------------------------------------------------------------
+
+  - name: bridge_judgment_judge
+    description: Many-to-many between judgments and judges.
+    columns:
+      - name: judgment_judge_key
+        data_tests:
+          - unique
+          - not_null
+      - name: judgment_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fct_judgment')
+                field: judgment_key
+      - name: judge_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_judge')
+                field: judge_key
+
+  - name: bridge_judgment_topic
+    description: Many-to-many between judgments and legal topics.
+    columns:
+      - name: judgment_topic_key
+        data_tests:
+          - unique
+          - not_null
+      - name: judgment_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fct_judgment')
+                field: judgment_key
+      - name: topic_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_topic')
+                field: topic_key
