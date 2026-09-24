@@ -75,6 +75,16 @@ if uploaded is not None:
             source_url=source_url,
         )
 
+        try:
+            already_saved = document_exists(document.sha256, settings)
+        except Exception:
+            already_saved = False   # Snowflake not configured/reachable; save_extraction still guards
+
+        if already_saved:
+            st.warning("This document has already been saved to Snowflake (matching SHA-256).")
+
+if st.button("Run agent", type="primary", disabled=already_saved):
+
         c1, c2, c3 = st.columns(3)
         c1.metric("Pages", document.page_count)
         c2.metric("Document SHA", document.sha256[:12] + "…")
@@ -160,5 +170,7 @@ if "extraction" in st.session_state:
                 settings=settings,
             )
             st.success(f"Saved to Snowflake. Extraction ID: {extraction_id}")
+        except DuplicateDocumentError as exc: 
+            st.warning(str(exc))
         except Exception as exc:
             st.error(f"Snowflake write failed: {exc}")
