@@ -125,15 +125,26 @@ For a longer-lived production deployment, prefer temporary credentials / workloa
 
 ## 2. Configure Snowflake
 
-Run:
+Run the base schema:
 
 ```text
 sql/bootstrap.sql
 ```
 
-in Snowflake.
+in Snowflake. To provision or rotate the ingestion service user's password,
+first configure an administrator connection in
+`~/.snowflake/connections.toml`, then run:
 
-Then configure:
+```bash
+python scripts/provision_ingestion_agent.py
+```
+
+The script binds `SNOWFLAKE_PASSWORD` from `.env` into
+`sql/003_CreateIngestionAgentRoles.sql`; the password is never stored in the
+SQL file. `SNOWFLAKE_ADMIN_CONNECTION` selects the named administrator
+connection and defaults to `default`.
+
+Configure the ingestion application with:
 
 ```env
 SNOWFLAKE_ACCOUNT=...

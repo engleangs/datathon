@@ -1,3 +1,7 @@
+-- Run this file through scripts/provision_ingestion_agent.py.
+-- The password bind placeholder is supplied from SNOWFLAKE_PASSWORD in .env;
+-- never replace it with a plaintext password in source control.
+
 CREATE ROLE IF NOT EXISTS IngestionAgent
     COMMENT = 'Service role for the court document ingestion tool: read + insert on COURT_DOCS';
 
@@ -17,16 +21,20 @@ GRANT USAGE ON SCHEMA datathon_test.courtlens       TO ROLE IngestionAgent;
 GRANT SELECT, INSERT ON ALL TABLES    IN SCHEMA datathon_test.courtlens TO ROLE IngestionAgent;
 GRANT SELECT, INSERT ON FUTURE TABLES IN SCHEMA datathon_test.courtlens TO ROLE IngestionAgent;
 
--- 3. A service user for the tool to log in as (key-pair auth, no password)
+-- 3. A password-authenticated service user for the ingestion application
 USE ROLE USERADMIN;
 CREATE USER IF NOT EXISTS INGESTION_AGENT_SVC
     TYPE                 = LEGACY_SERVICE
-    PASSWORD             = 'P?QAoBg&LNAK694L'
     MUST_CHANGE_PASSWORD = FALSE          -- a bot can't respond to a forced reset
     DEFAULT_ROLE      = IngestionAgent
     DEFAULT_WAREHOUSE = COMPUTE_WH
     DEFAULT_NAMESPACE = datathon_test.courtlens
     COMMENT = 'Login for the court document ingestion tool';
+
+-- CREATE USER IF NOT EXISTS does not update an existing user's password.
+-- Keep this separate ALTER so rerunning the provisioning script rotates it to
+-- the current SNOWFLAKE_PASSWORD value from .env.
+ALTER USER INGESTION_AGENT_SVC SET PASSWORD = ?;
 
 USE ROLE SECURITYADMIN;
 GRANT ROLE IngestionAgent TO USER INGESTION_AGENT_SVC;  -- DEFAULT_ROLE alone doesn't grant it
